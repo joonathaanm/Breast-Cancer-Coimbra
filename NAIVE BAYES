@@ -1,0 +1,43 @@
+library(mlr)
+library(tidyverse)
+library(readxl)
+
+#CARGAMOS LA BASE DE DATOS Breast Cancer Coimbra
+dataR2 <- read_excel("dataR2.xlsx")
+dataR2Tib <- as_tibble(dataR2)
+
+dataR2Tib %>% 
+  count(Classification) %>% 
+  mutate(Porcentaje = n / nrow(dataR2Tib)) -> tips2
+#VISUALIZAMOS LOS DATOS
+ggplot(tips2, aes(x = Classification, y = Porcentaje)) + 
+  geom_bar(stat = "identity")
+#DEFINIR LA TAREA
+dataR2Task <- makeClassifTask(data = dataR2Tib,
+                              target = 'Classification')
+#TIPO DE CLASIFICACION
+bayes <- makeLearner("classif.naiveBayes")
+#ENTRENAR EL MODELO
+bayesModel <- train(bayes, dataR2Task)
+
+kFold <- makeResampleDesc(method = "RepCV", folds = 10, reps = 50,
+                          stratify = TRUE)
+
+bayesCV <- resample(learner = bayes, task = dataR2Task,
+                    resampling = kFold,
+                    measures = list(mmce, acc, fpr, fnr))
+bayesCV$aggr
+
+newDataR2 <- tibble(Age = c(69,85,76,77,68,75,54,45,62,65,72,86),
+                    BMI = c(29.4,26.6,27.1,25.9,35.56,30.48,36.05,26.85,26.84,32.05,25.59,27.18),
+                    Glucose = c(89,96,110,85,131,152,119,92,100,97, 82,138),
+                    Insulin = c(10.704, 4.462,26.211,4.58,8.15,7.01,11.91,3.33,4.53, 5.73,2.82,19.91 ),
+                    HOMA = c(2.3498848,1.0566016,7.111918,0.960273333,2.633536667,2.628282667,3.495982,0.755688,1.1174,1.370998,0.570392,6.777364),
+                    Leptin = c(45.272,7.85,21.778,13.74,17.87,50.53,89.27,54.68, 12.45,61.48,24.96,90.28),
+                    Adiponectin = c(8.2863,7.9317,4.935635,9.75326,11.9,10.06, 8.01,12.1,21.42,22.54,33.75,14.11),
+                    Resistin = c(4.53,9.6135, 8.49395,11.774,4.19,11.73,5.06,10.96,7.32,10.33,3.27,4.35),
+                    MCP.1 = c(215.769,232.006,45.843,488.829,198.4, 99.45,218.28,268.23, 330.16,314.05,392.46,90.09))
+newDataR2
+newPatentisPredictions <- predict(bayesModel, newdata = newDataR2)
+getPredictionResponse(newPatentisPredictions)
+getLearnerModel(bayesModel)
